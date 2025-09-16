@@ -175,7 +175,7 @@
              <tbody>
                <tr><th>Latitude</th><td id="latCell"></td></tr>
                <tr><th>Longitude</th><td id="lonCell"></td></tr>
-               <tr><th>JULD</th><td id="juldCell"></td></tr>
+               <tr><th>Date & Time</th><td id="juldCell"></td></tr>
              </tbody>
            </table>
            <div style="margin-top:12px;">
@@ -327,6 +327,15 @@
         return Number.isFinite(num) ? num.toFixed(digits) : '';
       }
 
+      function julianToDate(juld) {
+        if (juld === null || juld === undefined || Number.isNaN(juld)) return '';
+        // JULD is days since 1950-01-01 00:00:00 UTC
+        const julianEpoch = new Date('1950-01-01T00:00:00Z');
+        const millisecondsPerDay = 24 * 60 * 60 * 1000;
+        const date = new Date(julianEpoch.getTime() + (juld * millisecondsPerDay));
+        return date.toISOString().replace('T', ' ').replace('Z', ' UTC');
+      }
+
       function updateSidebar(obj) {
         if (!obj) return;
         const f = obj;
@@ -341,7 +350,7 @@
         document.getElementById('infoTable').style.display = '';
         document.getElementById('latCell').textContent = formatNumber(lat, 5);
         document.getElementById('lonCell').textContent = formatNumber(lon, 5);
-        document.getElementById('juldCell').textContent = f.latest.juld ?? '';
+        document.getElementById('juldCell').textContent = julianToDate(f.latest.juld);
         document.getElementById('showChartsBtn').style.display = 'block';
       }
 
