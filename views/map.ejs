@@ -307,11 +307,18 @@
           parameters: { depthTest: false }
         });
 
-        // Build trajectory for selected float
+        // Build trajectory for selected float - show all cycles
         const selected = (FLOATS || []).find(f => f.id === selectedFloatId);
-        const lineData = selected ? [{
-          path: buildTrajectoryPositions(selected.history, selected.latest)
-        }] : [];
+        let lineData = [];
+        if (selected && selected.cycles) {
+          // Create trajectory for each cycle
+          selected.cycles.forEach(cycle => {
+            if (cycle.length > 1) {
+              const cyclePath = cycle.map(point => [point.longitude, point.latitude]);
+              lineData.push({ path: cyclePath });
+            }
+          });
+        }
 
         const trajectory = new LineLayer({
           id: 'trajectory',
@@ -326,12 +333,37 @@
           parameters: { depthTest: false }
         });
 
-        // Historical small points
+        // Historical small points - show all cycle points
+        let historicalData = [];
+        if (selected && selected.cycles) {
+          selected.cycles.forEach((cycle, cycleIndex) => {
+            cycle.forEach(point => {
+              historicalData.push({ 
+                position: [point.longitude, point.latitude],
+                cycle: cycleIndex + 1
+              });
+            });
+          });
+        }
+        
         const historicalPoints = new ScatterplotLayer({
           id: 'history-points',
-          data: selected ? selected.history.map(h => ({ position: [h.longitude, h.latitude] })) : [],
+          data: historicalData,
           getPosition: d => d.position,
-          getFillColor: [239, 68, 68, 220], // red
+          getFillColor: d => {
+            // Different colors for different cycles
+            const cycleColors = [
+              [239, 68, 68, 180],   // red
+              [34, 197, 94, 180],   // green
+              [59, 130, 246, 180],  // blue
+              [168, 85, 247, 180],  // purple
+              [245, 158, 11, 180],  // orange
+              [236, 72, 153, 180],  // pink
+              [6, 182, 212, 180],   // cyan
+              [34, 197, 94, 180]    // teal
+            ];
+            return cycleColors[d.cycle % cycleColors.length];
+          },
           getRadius: 3,
           pickable: false,
           radiusUnits: 'pixels',
@@ -459,43 +491,28 @@
         const cycleSelector = document.getElementById('cycleSelector');
         cycleList.innerHTML = '';
         
-        if (!f.history || f.history.length === 0) {
+        // Use pre-computed cycles from backend
+        const cycles = f.cycles || [];
+        
+        if (cycles.length === 0) {
           cycleSelector.style.display = 'none';
           return;
         }
         
         cycleSelector.style.display = 'block';
         
-        // Group history by cycle (approximate grouping by time gaps)
-        const cycles = [];
-        let currentCycle = [];
-        let lastJuld = null;
-        
-        f.history.forEach((point, index) => {
-          if (lastJuld === null || Math.abs(point.juld - lastJuld) > 1) {
-            if (currentCycle.length > 0) {
-              cycles.push([...currentCycle]);
-            }
-            currentCycle = [point];
-          } else {
-            currentCycle.push(point);
-          }
-          lastJuld = point.juld;
-        });
-        
-        if (currentCycle.length > 0) {
-          cycles.push(currentCycle);
-        }
-        
         cycles.forEach((cycle, index) => {
           const cycleItem = document.createElement('div');
           cycleItem.className = 'cycle-item';
           const startDate = julianToDate(cycle[0].juld);
           const endDate = julianToDate(cycle[cycle.length - 1].juld);
+          const cycleNumber = cycles.length - index; // Most recent = highest number
+          
           cycleItem.innerHTML = `
-            <div style="font-weight:600;">Cycle ${cycles.length - index}</div>
+            <div style="font-weight:600;">Cycle ${cycleNumber}</div>
             <div style="color:var(--muted); font-size:10px;">${startDate.split(' ')[0]} - ${endDate.split(' ')[0]}</div>
             <div style="color:var(--muted); font-size:10px;">${cycle.length} points</div>
+            <div style="color:var(--muted); font-size:10px;">Depth: ${Math.min(...cycle.map(p => p.pres)).toFixed(0)} - ${Math.max(...cycle.map(p => p.pres)).toFixed(0)} dbar</div>
           `;
           
           cycleItem.onclick = () => {

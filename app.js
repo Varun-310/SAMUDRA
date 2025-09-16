@@ -111,7 +111,6 @@ function toNumber(value) {
 }
 
 function finalizeFloatsFromMap(idToEntries) {
-  const MAX_HISTORY_POINTS = 60; // cap to speed up client load/render
   const floats = [];
   for (const [platform, bucket] of idToEntries.entries()) {
     const entries = bucket.entries;
@@ -120,11 +119,51 @@ function finalizeFloatsFromMap(idToEntries) {
       const bj = b.juld ?? -Infinity;
       return aj - bj;
     });
-    const latest = entries[entries.length - 1];
-    const fullHistory = entries.slice(0, Math.max(0, entries.length - 1));
-    const history = fullHistory.length > MAX_HISTORY_POINTS
-      ? fullHistory.slice(fullHistory.length - MAX_HISTORY_POINTS)
-      : fullHistory;
+    
+    // Group entries into cycles based on time gaps and pressure patterns
+    const cycles = [];
+    let currentCycle = [];
+    let lastJuld = null;
+    let lastPres = null;
+    
+    entries.forEach((entry, index) => {
+      const timeGap = lastJuld ? Math.abs(entry.juld - lastJuld) : 0;
+      const presGap = lastPres ? Math.abs(entry.pres - lastPres) : 0;
+      
+      // New cycle if: large time gap (>1 day) OR significant pressure change (>50 dbar) OR first entry
+      if (index === 0 || timeGap > 1 || (presGap > 50 && entry.pres < lastPres)) {
+        if (currentCycle.length > 0) {
+          cycles.push([...currentCycle]);
+        }
+        currentCycle = [entry];
+      } else {
+        currentCycle.push(entry);
+      }
+      
+      lastJuld = entry.juld;
+      lastPres = entry.pres;
+    });
+    
+    if (currentCycle.length > 0) {
+      cycles.push(currentCycle);
+    }
+    
+    // Latest cycle is the last one
+    const latest = cycles[cycles.length - 1][cycles[cycles.length - 1].length - 1];
+    
+    // All history data (no capping)
+    const allHistory = entries.map(h => ({
+      latitude: h.latitude,
+      longitude: h.longitude,
+      pres: h.pres,
+      juld: h.juld,
+      temp: h.temp,
+      psal: h.psal,
+      doxy: h.doxy,
+      nitrate: h.nitrate,
+      ph: h.ph
+    }));
+    
     floats.push({
       id: platform,
       type: bucket.type || 'core',
@@ -139,8 +178,8 @@ function finalizeFloatsFromMap(idToEntries) {
         nitrate: latest.nitrate,
         ph: latest.ph
       },
-      // include fields needed for charts; still capped to MAX_HISTORY_POINTS
-      history: history.map(h => ({
+      history: allHistory,
+      cycles: cycles.map(cycle => cycle.map(h => ({
         latitude: h.latitude,
         longitude: h.longitude,
         pres: h.pres,
@@ -150,7 +189,7 @@ function finalizeFloatsFromMap(idToEntries) {
         doxy: h.doxy,
         nitrate: h.nitrate,
         ph: h.ph
-      }))
+      })))
     });
   }
   return floats;
