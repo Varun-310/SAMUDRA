@@ -15,6 +15,8 @@ app.set('view engine', 'ejs');
 
 // Static assets
 app.use(express.static(path.join(__dirname, 'public')));
+// Serve brand/assets from project-level images directory
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // Utility: Recursively list files under a directory, filtering by extension
 function listFilesRecursive(startDir, allowedExts = new Set(['.csv'])) {

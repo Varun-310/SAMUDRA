@@ -6,17 +6,20 @@
     <title>ARGO Floats Map</title>
 
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <style>
       :root {
         --bg: #0b1220;
         --panel: #0f172a;
         --panel-muted: #0c1424;
-        --text: #e5e7eb;
-        --muted: #9ca3af;
-        --border: #1f2937;
-        --pill-bg: #1f2937;
-        --pill-text: #c7d2fe;
-        --legend-bg: rgba(17,24,39,0.9);
+        --text: #ffffff;
+        --muted: #bfc3cb;
+        --border: #233046;
+        --pill-bg: #1c2740;
+        --pill-text: #b9c3ff;
+        --legend-bg: rgba(11,18,32,0.9);
+        --grad-vertical: linear-gradient(180deg, #000000 0%, #063D67 100%);
+        --grad-stroke: linear-gradient(90deg, #DEDEDE 0%, #787878 100%);
       }
       html, body {
         margin: 0;
@@ -24,35 +27,54 @@
         width: 100%;
         background: var(--bg);
         color: var(--text);
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       }
       #container {
         position: fixed;
         inset: 0;
-        display: grid;
-        grid-template-columns: 420px 1fr 360px;
+        display: flex;
       }
       #list {
         border-right: 1px solid var(--border);
-        background: var(--panel-muted);
-        overflow: auto;
+        background: var(--grad-vertical);
+        overflow: hidden;
         display: flex;
         flex-direction: column;
-      }
-      #map {
         position: relative;
+        width: 300px;
+        transition: width 240ms ease;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
-      #sidebar {
-        border-left: 1px solid var(--border);
-        background: var(--panel);
-        overflow: auto;
-        display: flex;
-        flex-direction: column;
+      #list::-webkit-scrollbar { display: none; }
+      body.collapsed #list { width: 0; border-right: none; }
+      body.collapsed #list > *:not(.collapse-toggle) { display: none !important; }
+      .collapse-toggle {
+        position: absolute;
+        right: -16px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 32px;
+        height: 32px;
+        background: #f3f4f6;
+        color: #111827;
+        border-radius: 9999px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+        border: 1px solid #e5e7eb;
+        z-index: 6;
       }
+      body.collapsed .collapse-toggle {
+        position: fixed;
+        left: 8px;
+        right: auto;
+      }
+      #map { flex: 1 1 auto; position: relative; min-width: 0; }
+      #sidebar { display: none; }
       #sidebar header {
         padding: 12px 14px;
         border-bottom: 1px solid var(--border);
-        font-weight: 600;
+        font-weight: 700;
       }
       #details {
         padding: 12px 14px;
@@ -77,6 +99,36 @@
         font-size: 12px;
         font-weight: 600;
       }
+      .brand {
+        display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--border);
+      }
+      .brand img { width: 36px; height: 36px; border-radius: 8px; }
+      .brand .title { font-weight: 800; letter-spacing: 0.5px; }
+      .top-tabs {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(31,41,55,0.6);
+        backdrop-filter: blur(4px);
+        border: 1px solid var(--border);
+        border-radius: 9999px;
+        padding: 6px;
+        z-index: 5;
+      }
+      .seg-btn {
+        padding: 6px 16px;
+        border-radius: 9999px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--muted);
+        background: transparent;
+      }
+      .seg-btn.active { color: var(--text); background: #374151; }
       .footer {
         margin-top: auto;
         padding: 10px 14px;
@@ -101,26 +153,34 @@
         display: none;
         position: fixed;
         z-index: 1000;
-        left: 0;
-        top: 0;
+        inset: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0,0,0,0.8);
-        animation: fadeIn 0.3s ease-in-out;
+        background: rgba(10, 15, 25, 0.45);
+        backdrop-filter: blur(8px) saturate(120%);
+        -webkit-backdrop-filter: blur(8px) saturate(120%);
+        animation: fadeIn 0.25s ease-in-out;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
       }
       .modal-content {
-        background-color: var(--panel);
-        margin: 5% auto;
-        padding: 20px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        width: 80%;
-        max-width: 1000px;
-        max-height: 80vh;
+        background: rgba(17, 24, 39, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.06);
+        backdrop-filter: blur(14px) saturate(160%);
+        -webkit-backdrop-filter: blur(14px) saturate(160%);
+        width: min(1000px, 92vw);
+        max-height: 82vh;
         overflow-y: auto;
-        animation: slideIn 0.4s ease-out;
+        -ms-overflow-style: none; /* IE/Edge */
+        scrollbar-width: none;    /* Firefox */
+        padding: 20px;
+        animation: slideIn 0.35s ease-out;
         transform-origin: center;
       }
+      .modal-content::-webkit-scrollbar { display: none; }
       @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -188,48 +248,58 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
+    <div class="top-tabs">
+      <button class="seg-btn active" id="tabDashboard">Dashboard</button>
+      <button class="seg-btn" id="tabSamudra">Samudra</button>
+    </div>
     <div id="container">
       <aside id="list">
+        <div class="brand">
+          <img src="/images/image.png" alt="SAMUDRA"/>
+          <div>
+            <div class="title">Samudra</div>
+            <div class="muted" style="font-size:12px;">Dashboard</div>
+          </div>
+        </div>
         <header style="padding:12px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px;">
           <span style="font-weight:700;">Floats</span>
           <span class="pill" id="countPill">0</span>
         </header>
         <div style="padding:10px 12px; border-bottom:1px solid var(--border); display:flex; gap:8px;">
-          <input id="searchInput" placeholder="Search floats..." style="flex:1; padding:8px 10px; background: var(--panel); color: var(--text); border:1px solid var(--border); border-radius:6px;" />
+          <input id="searchInput" placeholder="Search floats..." style="flex:1; padding:10px 12px; background: rgba(12,20,36,0.9); color: var(--text); border:1px solid var(--border); border-radius:12px;" />
         </div>
         <div style="padding:10px 12px; display:flex; gap:6px; border-bottom:1px solid var(--border);">
           <button class="pill" id="filterAll">All</button>
           <button class="pill" id="filterBGC">BGC</button>
           <button class="pill" id="filterCore">Core</button>
         </div>
-        <div id="listBody" style="overflow:auto;"></div>
+        <div style="padding:8px 12px; display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-weight:700; color:#e5e7eb;">
+          <div>Float ID</div><div>Organization</div>
+        </div>
+        <div id="listBody" style="overflow:auto; -ms-overflow-style:none; scrollbar-width:none;"></div>
+        <style>#listBody::-webkit-scrollbar{display:none;}</style>
+        <div id="leftDetails" style="padding:12px; border-top:1px solid var(--border); display:none;">
+          <div id="leftFloatId" class="pill" style="margin-bottom:8px;"></div>
+          <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+            <tbody>
+              <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Latitude</th><td id="leftLat" style="text-align:right;"></td></tr>
+              <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Longitude</th><td id="leftLon" style="text-align:right;"></td></tr>
+              <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Date & Time</th><td id="leftJuld" style="text-align:right;"></td></tr>
+            </tbody>
+          </table>
+          <button id="openCharts" class="pill" style="width:100%; padding:8px; background:#1f2937; color:#c7d2fe; border:1px solid #374151; cursor:pointer; margin:8px 0;">Show Depth Profiles</button>
+          <div id="cycleSelector" style="margin-top:10px;">
+            <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Previous Cycles:</div>
+            <div id="cycleList" style="max-height:140px; overflow:auto; -ms-overflow-style:none; scrollbar-width:none; border:1px solid var(--border); border-radius:4px; background:var(--panel-muted);"></div>
+          </div>
+        </div>
+        <div class="collapse-toggle" id="collapseToggle">◀</div>
       </aside>
       <div id="map"></div>
-      <aside id="sidebar">
-        <header>ARGO Float Details</header>
-        <div id="details">
-          <p class="muted">Click a blue dot to view details.</p>
-          <div id="floatId" class="pill" style="display:none;"></div>
-           <table id="infoTable" style="display:none; margin-top:10px;">
-             <tbody>
-               <tr><th>Latitude</th><td id="latCell"></td></tr>
-               <tr><th>Longitude</th><td id="lonCell"></td></tr>
-               <tr><th>Date & Time</th><td id="juldCell"></td></tr>
-             </tbody>
-           </table>
-           <div style="margin-top:12px;">
-             <button id="showChartsBtn" class="pill" style="display:none; width:100%; padding:8px; background:#1f2937; color:#c7d2fe; border:1px solid #374151; cursor:pointer; margin-bottom:8px;">Show Depth Profiles</button>
-             <div id="cycleSelector" style="display:none;">
-               <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Previous Cycles:</div>
-               <div id="cycleList" style="max-height:120px; overflow-y:auto; border:1px solid var(--border); border-radius:4px; background:var(--panel-muted);"></div>
-             </div>
-           </div>
-        </div>
-        <div class="footer">Map: Satellite (Mapbox) • Points: Latest positions • Red = history</div>
-      </aside>
+      
     </div>
 
-    <!-- Modal for charts -->
+    <!-- Charts modal -->
     <div id="chartsModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -237,21 +307,11 @@
           <span class="close">&times;</span>
         </div>
         <div class="charts-grid">
-          <div class="chart-container">
-            <canvas id="chartTemp"></canvas>
-          </div>
-          <div class="chart-container">
-            <canvas id="chartSal"></canvas>
-          </div>
-          <div class="chart-container">
-            <canvas id="chartOxy"></canvas>
-          </div>
-          <div class="chart-container">
-            <canvas id="chartNit"></canvas>
-          </div>
-          <div class="chart-container">
-            <canvas id="chartPh"></canvas>
-          </div>
+          <div class="chart-container"><canvas id="chartTemp"></canvas></div>
+          <div class="chart-container"><canvas id="chartSal"></canvas></div>
+          <div class="chart-container"><canvas id="chartOxy"></canvas></div>
+          <div class="chart-container"><canvas id="chartNit"></canvas></div>
+          <div class="chart-container"><canvas id="chartPh"></canvas></div>
         </div>
       </div>
     </div>
@@ -447,28 +507,27 @@
         const f = obj;
         const lat = f.latest.latitude;
         const lon = f.latest.longitude;
-        document.getElementById('floatId').style.display = 'inline-block';
-        document.getElementById('floatId').textContent = `Float ${f.id}`;
-
-        const show = id => document.getElementById(id).parentElement.parentElement.style.display = '';
-        const hide = id => document.getElementById(id).parentElement.parentElement.style.display = 'none';
-
-        document.getElementById('infoTable').style.display = '';
-        document.getElementById('latCell').textContent = formatNumber(lat, 5);
-        document.getElementById('lonCell').textContent = formatNumber(lon, 5);
-        document.getElementById('juldCell').textContent = julianToDate(f.latest.juld);
-        document.getElementById('showChartsBtn').style.display = 'block';
+        // Inline details
+        const details = document.getElementById('leftDetails');
+        details.style.display = 'block';
+        document.getElementById('leftFloatId').textContent = `Float ${f.id}`;
+        document.getElementById('leftLat').textContent = formatNumber(lat, 5);
+        document.getElementById('leftLon').textContent = formatNumber(lon, 5);
+        document.getElementById('leftJuld').textContent = julianToDate(f.latest.juld);
         
         // Load complete data for this float if not already loaded
         if (f.cycles && f.cycles.length < 10) {
           const completeFloat = await loadCompleteFloatData(f.id);
           if (completeFloat) {
             populateCycleSelector(completeFloat);
+            updateCharts(completeFloat);
           } else {
             populateCycleSelector(f);
+            updateCharts(f);
           }
         } else {
           populateCycleSelector(f);
+          updateCharts(f);
         }
       }
 
@@ -595,22 +654,19 @@
         for (const f of filtered) {
           const row = document.createElement('div');
           row.style.display = 'grid';
-          row.style.gridTemplateColumns = '1fr auto';
+          row.style.gridTemplateColumns = '1fr 1fr';
           row.style.gap = '8px';
           row.style.padding = '10px 12px';
-          row.style.borderBottom = '1px solid #eef2f7';
+          row.style.borderBottom = '1px solid #1f2937';
           row.style.cursor = 'pointer';
-          row.onmouseenter = () => row.style.background = '#f1f5f9';
+          row.onmouseenter = () => row.style.background = 'rgba(255,255,255,0.05)';
           row.onmouseleave = () => row.style.background = '';
-          const name = document.createElement('div');
-          name.textContent = `Float ${f.id}`;
-          const tag = document.createElement('div');
-          tag.className = 'pill';
-          tag.style.background = f.type === 'bgc' ? '#d1fae5' : '#dbeafe';
-          tag.style.color = f.type === 'bgc' ? '#065f46' : '#1e3a8a';
-          tag.textContent = f.type.toUpperCase();
-          row.appendChild(name);
-          row.appendChild(tag);
+          const col1 = document.createElement('div');
+          col1.textContent = `${f.id}`;
+          const col2 = document.createElement('div');
+          col2.textContent = f.type === 'bgc' ? 'BGC' : 'INCOIS';
+          row.appendChild(col1);
+          row.appendChild(col2);
           row.onclick = () => {
             selectedFloatId = f.id;
             updateSidebar({ id: f.id, latest: f.latest, history: f.history });
@@ -626,31 +682,29 @@
       document.getElementById('filterCore').onclick = () => { currentFilter = 'core'; populateList(); renderLayers(); };
       document.getElementById('searchInput').oninput = (e) => { searchQuery = e.target.value; populateList(); };
 
-      // Modal functionality
+      // Modal functionality (charts still available if needed)
+      // charts modal wiring
       const modal = document.getElementById('chartsModal');
-      const showBtn = document.getElementById('showChartsBtn');
-      const closeBtn = document.getElementsByClassName('close')[0];
-
-      showBtn.onclick = () => {
+      const closeBtn = modal.querySelector('.close');
+      document.getElementById('openCharts').onclick = () => {
         modal.style.display = 'block';
         const selectedFloat = (FLOATS || []).find(f => f.id === selectedFloatId);
         if (selectedFloat) {
-          // Reset chart animations
-          document.querySelectorAll('.chart-container').forEach(container => {
-            container.classList.remove('visible');
-          });
+          document.querySelectorAll('.chart-container').forEach(c => c.classList.remove('visible'));
           updateCharts(selectedFloat);
+          setTimeout(() => { document.querySelectorAll('.chart-container').forEach(c => c.classList.add('visible')); }, 50);
         }
       };
+      closeBtn.onclick = () => { modal.style.display = 'none'; };
+      window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
 
-      closeBtn.onclick = () => {
-        modal.style.display = 'none';
-      };
-
-      window.onclick = (event) => {
-        if (event.target === modal) {
-          modal.style.display = 'none';
-        }
+      // Collapse toggle
+      const collapseToggle = document.getElementById('collapseToggle');
+      collapseToggle.onclick = () => {
+        const isCollapsed = document.body.classList.toggle('collapsed');
+        collapseToggle.textContent = isCollapsed ? '▶' : '◀';
+        // Force map to resize after layout change
+        setTimeout(() => map.resize(), 260);
       };
     </script>
   </body>
