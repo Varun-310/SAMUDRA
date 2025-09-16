@@ -324,14 +324,44 @@ app.get('/', async (req, res) => {
   }
 });
 
-// API endpoint to get floats data
+// API endpoint to get floats data (optimized for frontend)
 app.get('/api/floats', async (req, res) => {
   try {
     const floats = await ensureCache();
-    res.json(floats);
+    
+    // Create optimized version for frontend - limit history and cycles
+    const optimizedFloats = floats.map(float => ({
+      id: float.id,
+      type: float.type,
+      latest: float.latest,
+      // Limit history to last 200 points to avoid JSON size issues
+      history: float.history.slice(-200),
+      // Limit cycles to last 10 cycles, each with max 50 points
+      cycles: float.cycles.slice(-10).map(cycle => cycle.slice(-50))
+    }));
+    
+    res.json(optimizedFloats);
   } catch (err) {
     console.error('[ERROR] Failed to load floats:', err);
     res.status(500).json({ error: 'Failed to load data' });
+  }
+});
+
+// API endpoint to get specific float's complete data
+app.get('/api/float/:id', async (req, res) => {
+  try {
+    const floats = await ensureCache();
+    const floatId = req.params.id;
+    const float = floats.find(f => f.id === floatId);
+    
+    if (!float) {
+      return res.status(404).json({ error: 'Float not found' });
+    }
+    
+    res.json(float);
+  } catch (err) {
+    console.error('[ERROR] Failed to load float data:', err);
+    res.status(500).json({ error: 'Failed to load float data' });
   }
 });
 

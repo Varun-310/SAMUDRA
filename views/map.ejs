@@ -381,12 +381,31 @@
         try {
           const response = await fetch('/api/floats');
           FLOATS = await response.json();
-          console.log(`[INFO] Loaded ${FLOATS.length} floats with complete data`);
+          console.log(`[INFO] Loaded ${FLOATS.length} floats with optimized data`);
           renderLayers();
           populateList();
         } catch (err) {
           console.error('[ERROR] Failed to load floats data:', err);
         }
+      }
+
+      // Load complete data for a specific float
+      async function loadCompleteFloatData(floatId) {
+        try {
+          const response = await fetch(`/api/float/${floatId}`);
+          const completeFloat = await response.json();
+          
+          // Update the float in FLOATS array with complete data
+          const index = FLOATS.findIndex(f => f.id === floatId);
+          if (index !== -1) {
+            FLOATS[index] = completeFloat;
+            console.log(`[INFO] Loaded complete data for float ${floatId}`);
+            return completeFloat;
+          }
+        } catch (err) {
+          console.error('[ERROR] Failed to load complete float data:', err);
+        }
+        return null;
       }
 
       map.on('load', () => {
@@ -423,7 +442,7 @@
         return date.toISOString().replace('T', ' ').replace('Z', ' UTC');
       }
 
-      function updateSidebar(obj) {
+      async function updateSidebar(obj) {
         if (!obj) return;
         const f = obj;
         const lat = f.latest.latitude;
@@ -439,7 +458,18 @@
         document.getElementById('lonCell').textContent = formatNumber(lon, 5);
         document.getElementById('juldCell').textContent = julianToDate(f.latest.juld);
         document.getElementById('showChartsBtn').style.display = 'block';
-        populateCycleSelector(f);
+        
+        // Load complete data for this float if not already loaded
+        if (f.cycles && f.cycles.length < 10) {
+          const completeFloat = await loadCompleteFloatData(f.id);
+          if (completeFloat) {
+            populateCycleSelector(completeFloat);
+          } else {
+            populateCycleSelector(f);
+          }
+        } else {
+          populateCycleSelector(f);
+        }
       }
 
       let charts = {};
