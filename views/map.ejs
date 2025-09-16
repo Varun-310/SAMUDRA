@@ -258,7 +258,7 @@
 
     <script>
       const MAPBOX_TOKEN = 'pk.eyJ1IjoicmFtYW5hMDciLCJhIjoiY21mYXEzZ242MG1oMzJ3cW90bDZjMzhxZCJ9.ljbKIryXLAIOraJp6kIBgw';
-      const FLOATS = <%- JSON.stringify(floats || []) %>;
+      let FLOATS = [];
 
       mapboxgl.accessToken = MAPBOX_TOKEN;
       const map = new mapboxgl.Map({
@@ -376,9 +376,21 @@
       const overlay = new MapboxOverlay({ interleaved: true, layers: [] });
       map.addControl(overlay);
 
+      // Load data from API
+      async function loadFloatsData() {
+        try {
+          const response = await fetch('/api/floats');
+          FLOATS = await response.json();
+          console.log(`[INFO] Loaded ${FLOATS.length} floats with complete data`);
+          renderLayers();
+          populateList();
+        } catch (err) {
+          console.error('[ERROR] Failed to load floats data:', err);
+        }
+      }
+
       map.on('load', () => {
-        renderLayers();
-        populateList();
+        loadFloatsData();
       });
 
       map.on('style.load', () => {

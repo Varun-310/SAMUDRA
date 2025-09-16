@@ -316,11 +316,22 @@ app.get('/', async (req, res) => {
     const floats = await ensureCache();
     res.render('map', {
       mapboxToken: MAPBOX_TOKEN,
-      floats
+      floats: [] // Send empty array, load via API
     });
   } catch (err) {
     console.error('[ERROR] Failed to load floats:', err);
     res.status(500).send('Failed to load data');
+  }
+});
+
+// API endpoint to get floats data
+app.get('/api/floats', async (req, res) => {
+  try {
+    const floats = await ensureCache();
+    res.json(floats);
+  } catch (err) {
+    console.error('[ERROR] Failed to load floats:', err);
+    res.status(500).json({ error: 'Failed to load data' });
   }
 });
 
