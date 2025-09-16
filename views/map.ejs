@@ -106,6 +106,7 @@
         width: 100%;
         height: 100%;
         background-color: rgba(0,0,0,0.8);
+        animation: fadeIn 0.3s ease-in-out;
       }
       .modal-content {
         background-color: var(--panel);
@@ -117,6 +118,44 @@
         max-width: 1000px;
         max-height: 80vh;
         overflow-y: auto;
+        animation: slideIn 0.4s ease-out;
+        transform-origin: center;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideIn {
+        from { 
+          opacity: 0;
+          transform: scale(0.8) translateY(-50px);
+        }
+        to { 
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      .cycle-item {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        font-size: 12px;
+      }
+      .cycle-item:hover {
+        background-color: var(--border);
+      }
+      .cycle-item:last-child {
+        border-bottom: none;
+      }
+      .chart-container {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.6s ease;
+      }
+      .chart-container.visible {
+        opacity: 1;
+        transform: translateY(0);
       }
       .modal-header {
         display: flex;
@@ -179,7 +218,11 @@
              </tbody>
            </table>
            <div style="margin-top:12px;">
-             <button id="showChartsBtn" class="pill" style="display:none; width:100%; padding:8px; background:#1f2937; color:#c7d2fe; border:1px solid #374151; cursor:pointer;">Show Depth Profiles</button>
+             <button id="showChartsBtn" class="pill" style="display:none; width:100%; padding:8px; background:#1f2937; color:#c7d2fe; border:1px solid #374151; cursor:pointer; margin-bottom:8px;">Show Depth Profiles</button>
+             <div id="cycleSelector" style="display:none;">
+               <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Previous Cycles:</div>
+               <div id="cycleList" style="max-height:120px; overflow-y:auto; border:1px solid var(--border); border-radius:4px; background:var(--panel-muted);"></div>
+             </div>
            </div>
         </div>
         <div class="footer">Map: Satellite (Mapbox) • Points: Latest positions • Red = history</div>
@@ -352,6 +395,7 @@
         document.getElementById('lonCell').textContent = formatNumber(lon, 5);
         document.getElementById('juldCell').textContent = julianToDate(f.latest.juld);
         document.getElementById('showChartsBtn').style.display = 'block';
+        populateCycleSelector(f);
       }
 
       let charts = {};
@@ -366,18 +410,18 @@
         return charts[id];
       }
 
-      function updateCharts(f) {
-        const historyAsc = (f.history || []).slice();
+      function updateCharts(f, cycleData = null) {
+        const dataToUse = cycleData || (f.history || []).slice();
         // Use history to plot depth profiles; sort by pressure if available
-        historyAsc.sort((a, b) => {
+        dataToUse.sort((a, b) => {
           const ap = a.pres ?? 0; const bp = b.pres ?? 0; return ap - bp;
         });
-        const pres = historyAsc.map(h => h.pres).filter(v => v !== null && v !== undefined);
-        const temp = historyAsc.map(h => h.temp).filter(v => v !== null && v !== undefined);
-        const psal = historyAsc.map(h => h.psal).filter(v => v !== null && v !== undefined);
-        const oxy = historyAsc.map(h => h.doxy).filter(v => v !== null && v !== undefined);
-        const nit = historyAsc.map(h => h.nitrate).filter(v => v !== null && v !== undefined);
-        const ph = historyAsc.map(h => h.ph).filter(v => v !== null && v !== undefined);
+        const pres = dataToUse.map(h => h.pres).filter(v => v !== null && v !== undefined);
+        const temp = dataToUse.map(h => h.temp).filter(v => v !== null && v !== undefined);
+        const psal = dataToUse.map(h => h.psal).filter(v => v !== null && v !== undefined);
+        const oxy = dataToUse.map(h => h.doxy).filter(v => v !== null && v !== undefined);
+        const nit = dataToUse.map(h => h.nitrate).filter(v => v !== null && v !== undefined);
+        const ph = dataToUse.map(h => h.ph).filter(v => v !== null && v !== undefined);
 
         const pairs = [
           { id: 'chartTemp', label: 'Temperature (°C)', vals: temp, color: '#f59e0b' },
@@ -387,20 +431,90 @@
           { id: 'chartPh', label: 'pH', vals: ph, color: '#a855f7' }
         ];
 
-        for (const p of pairs) {
-          const chart = ensureChart(p.id, p.label, p.color);
-          const validData = [];
-          const validLabels = [];
-          for (let i = 0; i < Math.min(pres.length, p.vals.length); i++) {
-            if (pres[i] !== null && pres[i] !== undefined && p.vals[i] !== null && p.vals[i] !== undefined) {
-              validLabels.push(pres[i]);
-              validData.push(p.vals[i]);
+        // Animate charts with staggered appearance
+        pairs.forEach((p, index) => {
+          setTimeout(() => {
+            const chart = ensureChart(p.id, p.label, p.color);
+            const validData = [];
+            const validLabels = [];
+            for (let i = 0; i < Math.min(pres.length, p.vals.length); i++) {
+              if (pres[i] !== null && pres[i] !== undefined && p.vals[i] !== null && p.vals[i] !== undefined) {
+                validLabels.push(pres[i]);
+                validData.push(p.vals[i]);
+              }
             }
-          }
-          chart.data.labels = validLabels;
-          chart.data.datasets[0].data = validData;
-          chart.update();
+            chart.data.labels = validLabels;
+            chart.data.datasets[0].data = validData;
+            chart.update();
+            
+            // Show chart with animation
+            const chartContainer = document.getElementById(p.id).parentElement;
+            chartContainer.classList.add('visible');
+          }, index * 200);
+        });
+      }
+
+      function populateCycleSelector(f) {
+        const cycleList = document.getElementById('cycleList');
+        const cycleSelector = document.getElementById('cycleSelector');
+        cycleList.innerHTML = '';
+        
+        if (!f.history || f.history.length === 0) {
+          cycleSelector.style.display = 'none';
+          return;
         }
+        
+        cycleSelector.style.display = 'block';
+        
+        // Group history by cycle (approximate grouping by time gaps)
+        const cycles = [];
+        let currentCycle = [];
+        let lastJuld = null;
+        
+        f.history.forEach((point, index) => {
+          if (lastJuld === null || Math.abs(point.juld - lastJuld) > 1) {
+            if (currentCycle.length > 0) {
+              cycles.push([...currentCycle]);
+            }
+            currentCycle = [point];
+          } else {
+            currentCycle.push(point);
+          }
+          lastJuld = point.juld;
+        });
+        
+        if (currentCycle.length > 0) {
+          cycles.push(currentCycle);
+        }
+        
+        cycles.forEach((cycle, index) => {
+          const cycleItem = document.createElement('div');
+          cycleItem.className = 'cycle-item';
+          const startDate = julianToDate(cycle[0].juld);
+          const endDate = julianToDate(cycle[cycle.length - 1].juld);
+          cycleItem.innerHTML = `
+            <div style="font-weight:600;">Cycle ${cycles.length - index}</div>
+            <div style="color:var(--muted); font-size:10px;">${startDate.split(' ')[0]} - ${endDate.split(' ')[0]}</div>
+            <div style="color:var(--muted); font-size:10px;">${cycle.length} points</div>
+          `;
+          
+          cycleItem.onclick = () => {
+            // Update sidebar with cycle details
+            const latestCycle = cycle[cycle.length - 1];
+            document.getElementById('latCell').textContent = formatNumber(latestCycle.latitude, 5);
+            document.getElementById('lonCell').textContent = formatNumber(latestCycle.longitude, 5);
+            document.getElementById('juldCell').textContent = julianToDate(latestCycle.juld);
+            
+            // Update charts with cycle data
+            updateCharts(f, cycle);
+            
+            // Highlight selected cycle
+            document.querySelectorAll('.cycle-item').forEach(item => item.style.background = '');
+            cycleItem.style.background = 'var(--border)';
+          };
+          
+          cycleList.appendChild(cycleItem);
+        });
       }
 
       // Left list filtering / search
@@ -460,7 +574,14 @@
 
       showBtn.onclick = () => {
         modal.style.display = 'block';
-        updateCharts({ id: selectedFloatId, history: (FLOATS || []).find(f => f.id === selectedFloatId)?.history || [] });
+        const selectedFloat = (FLOATS || []).find(f => f.id === selectedFloatId);
+        if (selectedFloat) {
+          // Reset chart animations
+          document.querySelectorAll('.chart-container').forEach(container => {
+            container.classList.remove('visible');
+          });
+          updateCharts(selectedFloat);
+        }
       };
 
       closeBtn.onclick = () => {
