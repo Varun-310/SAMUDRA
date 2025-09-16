@@ -163,7 +163,9 @@ function finalizeFloatsFromMap(idToEntries) {
       psal: h.psal,
       doxy: h.doxy,
       nitrate: h.nitrate,
-      ph: h.ph
+      ph: h.ph,
+      organization: h.organization,
+      dateIso: h.dateIso
     }));
     
     floats.push({
@@ -178,7 +180,9 @@ function finalizeFloatsFromMap(idToEntries) {
         psal: latest.psal,
         doxy: latest.doxy,
         nitrate: latest.nitrate,
-        ph: latest.ph
+        ph: latest.ph,
+        organization: latest.organization,
+        dateIso: latest.dateIso
       },
       history: allHistory,
       cycles: cycles.map(cycle => cycle.map(h => ({
@@ -242,11 +246,17 @@ async function loadFloatsStreaming() {
         const doxy = toNumber(get(['DOXY', 'doxy', 'oxygen']));
         const nitrate = toNumber(get(['NITRATE', 'nitrate', 'NITRATE_ADJUSTED', 'nitrate_adjusted']));
         const ph = toNumber(get(['PH_IN_SITU_TOTAL', 'ph_in_situ_total', 'PH_IN_SITU_TOTAL_ADJUSTED', 'ph']));
+        const organization = (get(['DATA_CENTRE','data_centre','ORGANIZATION','organization','ORG','org']) || '').toString().trim();
 
-        // JULD fallback derivation from DATE_CREATION/DATE_UPDATE or cycle number
+        // JULD and ISO date computation
         const rawJuld = get(['JULD', 'juld', 'JULD_ADJUSTED']);
+        const epoch1950 = Date.parse('1950-01-01T00:00:00Z');
+        const dayMs = 24 * 60 * 60 * 1000;
         let juld = toNumber(rawJuld);
-        if (juld === null) {
+        let dateIso = null;
+        if (juld !== null) {
+          dateIso = new Date(epoch1950 + juld * dayMs).toISOString();
+        } else {
           const dateStr = (get(['DATE_CREATION', 'date_creation', 'DATE', 'date', 'DATE_UPDATE']) || '').toString();
           const digits = dateStr.replace(/[^0-9]/g, '');
           if (digits.length >= 8) {
@@ -257,9 +267,9 @@ async function loadFloatsStreaming() {
             const hh = digits.length >= 10 ? parseInt(digits.slice(8, 10)) : 0;
             const mm = digits.length >= 12 ? parseInt(digits.slice(10, 12)) : 0;
             const ss = digits.length >= 14 ? parseInt(digits.slice(12, 14)) : 0;
-            const dt = Date.UTC(y, m, d, hh, mm, ss);
-            // Convert to Julian Day (days since 4713 BC). For ordering only, use epoch days.
-            juld = dt / (1000 * 60 * 60 * 24);
+            const dtMs = Date.UTC(y, m, d, hh, mm, ss);
+            juld = (dtMs - epoch1950) / dayMs;
+            dateIso = new Date(dtMs).toISOString();
           } else {
             const cycle = toNumber(get(['CYCLE_NUMBER', 'cycle_number', 'cycle']));
             if (cycle !== null) juld = cycle;
@@ -274,7 +284,9 @@ async function loadFloatsStreaming() {
           psal,
           doxy,
           nitrate,
-          ph
+          ph,
+          organization,
+          dateIso
         };
         if (!idToEntries.has(platform)) idToEntries.set(platform, { entries: [], type: sourceType });
         const bucket = idToEntries.get(platform);

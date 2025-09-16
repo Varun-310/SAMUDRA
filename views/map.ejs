@@ -285,6 +285,8 @@
               <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Latitude</th><td id="leftLat" style="text-align:right;"></td></tr>
               <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Longitude</th><td id="leftLon" style="text-align:right;"></td></tr>
               <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Date & Time</th><td id="leftJuld" style="text-align:right;"></td></tr>
+              <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Organization</th><td id="leftOrg" style="text-align:right;"></td></tr>
+              <tr><th style="text-align:left; padding:4px 0; color:var(--muted);">Type</th><td id="leftType" style="text-align:right;"></td></tr>
             </tbody>
           </table>
           <button id="openCharts" class="pill" style="width:100%; padding:8px; background:#1f2937; color:#c7d2fe; border:1px solid #374151; cursor:pointer; margin:8px 0;">Show Depth Profiles</button>
@@ -513,7 +515,15 @@
         document.getElementById('leftFloatId').textContent = `Float ${f.id}`;
         document.getElementById('leftLat').textContent = formatNumber(lat, 5);
         document.getElementById('leftLon').textContent = formatNumber(lon, 5);
-        document.getElementById('leftJuld').textContent = julianToDate(f.latest.juld);
+        // Prefer ISO from backend if present, else convert JULD
+        if (f.latest.dateIso) {
+          const dt = new Date(f.latest.dateIso);
+          document.getElementById('leftJuld').textContent = dt.toISOString().replace('T',' ').replace('Z',' UTC');
+        } else {
+          document.getElementById('leftJuld').textContent = julianToDate(f.latest.juld);
+        }
+        document.getElementById('leftOrg').textContent = f.latest.organization || '—';
+        document.getElementById('leftType').textContent = (f.type === 'bgc' ? 'BGC' : 'Core');
         
         // Load complete data for this float if not already loaded
         if (f.cycles && f.cycles.length < 10) {
@@ -557,11 +567,11 @@
         const ph = dataToUse.map(h => h.ph).filter(v => v !== null && v !== undefined);
 
         const pairs = [
-          { id: 'chartTemp', label: 'Temperature (°C)', vals: temp, color: '#f59e0b' },
-          { id: 'chartSal', label: 'Salinity (PSU)', vals: psal, color: '#3b82f6' },
-          { id: 'chartOxy', label: 'Oxygen (μmol/kg)', vals: oxy, color: '#10b981' },
-          { id: 'chartNit', label: 'Nitrate (μmol/kg)', vals: nit, color: '#ef4444' },
-          { id: 'chartPh', label: 'pH', vals: ph, color: '#a855f7' }
+          { id: 'chartTemp', label: 'Temperature (°C)', vals: temp, color: '#60a5fa' },
+          { id: 'chartSal', label: 'Salinity (PSU)', vals: psal, color: '#34d399' },
+          { id: 'chartOxy', label: 'Oxygen (μmol/kg)', vals: oxy, color: '#f472b6' },
+          { id: 'chartNit', label: 'Nitrate (μmol/kg)', vals: nit, color: '#f59e0b' },
+          { id: 'chartPh', label: 'pH', vals: ph, color: '#a78bfa' }
         ];
 
         // Animate charts with staggered appearance
@@ -578,6 +588,12 @@
             }
             chart.data.labels = validLabels;
             chart.data.datasets[0].data = validData;
+            chart.options.plugins.legend.display = false;
+            chart.options.plugins.tooltip = { enabled: true, mode: 'index', intersect: false };
+            chart.options.scales = {
+              x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#9ca3af' }, title: { display: true, text: 'Depth (dbar)', color: '#d1d5db' } },
+              y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#9ca3af' }, title: { display: true, text: p.label, color: '#d1d5db' } }
+            };
             chart.update();
             
             // Show chart with animation
